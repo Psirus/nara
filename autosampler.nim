@@ -2,7 +2,7 @@ import nordmidi
 import nordaudio
 import gintro/[gtk, gobject, gio]
 import std/with
-import strutils, strformat
+import strutils, strformat, math
 import sampling
 
 const
@@ -12,6 +12,13 @@ type
   Note = object
     octave: int
     note: string
+  RecordingData = object
+    midiLow: int
+    midiHigh: int
+    stride: int
+    midiDevice: nordmidi.DeviceID
+    audioDevice: nordaudio.DeviceIndex
+    progressBar: LevelBar
 
 var
   minNote = Note(octave: 3, note: "C")
@@ -22,6 +29,7 @@ var
   audioDevice: nordaudio.DeviceIndex
   midiOutputs: seq[int]
   audioInputs: seq[int]
+  recordingThread: Thread[RecordingData]
 
 proc chooseMidiDevice(box: ListBox, row: ListBoxRow) =
   midiDevice = cast[nordmidi.DeviceID](midiOutputs[row.getIndex()])
@@ -75,15 +83,6 @@ proc createConnectionsBox(): Box =
   result.add(midiLabel)
   result.add(midiOutputChooser)
 
-proc numNotes(): int =
-  let midiLow = toMidiNote(minNote.octave, minNote.note)
-  let midiHigh = toMidiNote(maxNote.octave, maxNote.note)
-  return (midiHigh - midiLow) div stride
-
-proc updateProgressBar() =
-  if progressBar == nil:
-    return
-  progressBar.maxValue = toFloat(numNotes())
 
 proc changeOctave(cb: ComboBoxText, selection: string) =
   let octave = parseInt(cb.getActiveText().split(" ")[1])
@@ -95,7 +94,6 @@ proc changeOctave(cb: ComboBoxText, selection: string) =
   else:
     raise newException(RangeDefect, "Change octave works on either 'min' or 'max'.")
 
-  updateProgressBar()
 
 proc changeNote(cb: ComboBoxText, selection: string) =
   case selection
@@ -106,11 +104,10 @@ proc changeNote(cb: ComboBoxText, selection: string) =
   else:
     raise newException(RangeDefect, "Change note works on either 'min' or 'max'.")
 
-  updateProgressBar()
 
 proc changeStride(sb: SpinButton) =
   stride = toInt(sb.value)
-  updateProgressBar()
+
 
 proc createNotesBox(): Box =
   result = newBox(Orientation.horizontal)
@@ -176,11 +173,30 @@ proc createNotesBox(): Box =
   result.add(strideLabel)
   result.add(strideButton)
 
+
+proc recording(data: RecordingData) {.thread.} =
+  data.progressBar.value = data.progressBar.value + cdouble(1.0)
+  for note in countup(data.midiLow, data.midiHigh, data.stride):
+    sample(data.midiDevice, data.audioDevice, note, fmt"{toString(note)}.wav")
+    data.progressBar.value = data.progressBar.value + cdouble(1.0)
+
+  data.progressBar.value = 0.0
+  data.progressBar.hide()
+
 proc startRecording(button: Button) =
-  let midiLow = toMidiNote(minNote.octave, minNote.note)
-  let midiHigh = toMidiNote(maxNote.octave, maxNote.note)
-  for note in countup(midiLow, midiHigh, stride):
-    sample(midiDevice, audioDevice, note, fmt"{toString(note)}.wav")
+  progressBar.show()
+
+  var data: RecordingData
+  data.midiLow = toMidiNote(minNote.octave, minNote.note)
+  data.midiHigh = toMidiNote(maxNote.octave, maxNote.note)
+  data.stride = stride
+  data.audioDevice = audioDevice
+  data.midiDevice = midiDevice
+  data.progressBar = progressBar
+
+  createThread[RecordingData](recordingThread, recording, data)
+
+  progressBar.max_value = ceil((data.midiHigh - data.midiLow) / stride)
 
 proc createStartStopBox(): Box =
   result = newBox(Orientation.horizontal)
@@ -218,7 +234,7 @@ proc appActivate(app: Application) =
   columnBox.add(notesBox)
   columnBox.add(startStopBox)
 
-  progressBar = newLevelBarForInterval(0, toFloat(numNotes()))
+  progressBar = newLevelBarForInterval(0, 1)
   with progressBar:
     mode = LevelBarMode.discrete
     marginStart = 25
@@ -229,6 +245,7 @@ proc appActivate(app: Application) =
 
   window.add(columnBox)
   showAll(window)
+  progressBar.hide()
 
 proc main =
   discard nordaudio.initNoDebug()
