@@ -1,9 +1,12 @@
+import std/with
+import math, os, strutils, strformat
+
 import nordmidi
 import nordaudio
 import gintro/[gtk, gobject, gio]
-import std/with
-import strutils, strformat, math
+
 import sampling
+import formats
 
 const
   labelMarginEnd = 25
@@ -19,6 +22,7 @@ type
     midiDevice: nordmidi.DeviceID
     audioDevice: nordaudio.DeviceIndex
     progressBar: LevelBar
+    sampleDir: string
 
 var
   minNote = Note(octave: 3, note: "C")
@@ -30,6 +34,8 @@ var
   midiOutputs: seq[int]
   audioInputs: seq[int]
   recordingThread: Thread[RecordingData]
+  filename: string
+  sampleDir: string
 
 proc chooseMidiDevice(box: ListBox, row: ListBoxRow) =
   midiDevice = cast[nordmidi.DeviceID](midiOutputs[row.getIndex()])
@@ -173,11 +179,23 @@ proc createNotesBox(): Box =
   result.add(strideLabel)
   result.add(strideButton)
 
+proc openFileChooser(button: Button, fileEntry: Entry) =
+  let fileChooser = newFileChooserNative("Select output file", nil, FileChooserAction.save)
+  let homeDir = getHomeDir()
+  discard fileChooser.setCurrentFolder(homeDir)
+  let response = ResponseType(fileChooser.run())
+  if response == ResponseType.accept:
+    filename = fileChooser.getFilename()
+    sampleDir = joinPath(parentDir(filename), "samples")
+    let displayed = filename.replace(homeDir, "~/")
+    fileEntry.widthChars = len(displayed)
+    fileEntry.text = cstring(displayed)
+
 
 proc recording(data: RecordingData) {.thread.} =
   data.progressBar.value = data.progressBar.value + cdouble(1.0)
   for note in countup(data.midiLow, data.midiHigh, data.stride):
-    sample(data.midiDevice, data.audioDevice, note, fmt"{toString(note)}.wav")
+    sample(data.midiDevice, data.audioDevice, note, fmt"{data.sampleDir}/{toString(note)}.wav")
     data.progressBar.value = data.progressBar.value + cdouble(1.0)
 
   data.progressBar.value = 0.0
@@ -185,6 +203,7 @@ proc recording(data: RecordingData) {.thread.} =
 
 proc startRecording(button: Button) =
   progressBar.show()
+  createDir(sampleDir)
 
   var data: RecordingData
   data.midiLow = toMidiNote(minNote.octave, minNote.note)
@@ -193,18 +212,37 @@ proc startRecording(button: Button) =
   data.audioDevice = audioDevice
   data.midiDevice = midiDevice
   data.progressBar = progressBar
+  data.sampleDir = sampleDir
 
   createThread[RecordingData](recordingThread, recording, data)
 
   progressBar.max_value = ceil((data.midiHigh - data.midiLow) / stride)
 
-proc createStartStopBox(): Box =
+  var samples: seq[(int, string)]
+  for note in countup(data.midiLow, data.midiHigh, data.stride):
+    samples.add((note, fmt"samples/{toString(note)}.wav"))
+  writeDecentSampler(filename, samples)
+
+proc createStartStopBox(window: Window): Box =
   result = newBox(Orientation.horizontal)
   with result:
     marginStart = 25
     marginTop = 25
     marginEnd = 25
     hexpand = true
+
+  let fileBox = newBox(Orientation.horizontal)
+  let fileEntry = newEntry()
+  fileEntry.setPlaceHolderText("Output file name ...")
+  let chooseButton = newButton("Choose output file")
+  chooseButton.connect("pressed", openFileChooser, fileEntry)
+  with fileBox:
+    hexpand = true
+    halign = Align.start
+    add(fileEntry)
+    add(chooseButton)
+
+
 
   let recordButton = newButton()
   recordButton.connect("clicked", startRecording)
@@ -215,20 +253,26 @@ proc createStartStopBox(): Box =
   recordBox.add(recordIcon)
   recordBox.add(recordLabel)
   recordButton.add(recordBox)
+
+  with recordButton:
+    hexpand = true
+    halign = Align.start
+
+  result.add(fileBox)
   result.add(recordButton)
 
 
 proc appActivate(app: Application) =
   let window = newApplicationWindow(app)
   with window:
-    title = "Autosampler"
+    title = "Nara"
     defaultSize = (800, 600)
 
   let columnBox = newBox(Orientation.vertical)
 
   let connectionsBox = createConnectionsBox()
   let notesBox = createNotesBox()
-  let startStopBox = createStartStopBox()
+  let startStopBox = createStartStopBox(window)
 
   columnBox.add(connectionsBox)
   columnBox.add(notesBox)
@@ -250,7 +294,7 @@ proc appActivate(app: Application) =
 proc main =
   discard nordaudio.initNoDebug()
 
-  let app = newApplication("org.psirus.autosampler")
+  let app = newApplication("org.psirus.nara")
   connect(app, "activate", appActivate)
   discard run(app)
 
