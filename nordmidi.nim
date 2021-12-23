@@ -1,5 +1,3 @@
-import std/tables
-
 {.passL: "-lportmidi".}
 {.pragma: pmHeader, header: "portmidi.h"}
 
@@ -68,9 +66,8 @@ proc getOutputDevices*(): seq[(DeviceID, DeviceInfo)] =
     if deviceInfo.output == 1:
       result.add((i, deviceInfo))
 
-proc toMidiNote*(octave: int, note: string): int =
-  let noteValues = {"C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5, "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11}.toTable
-  result = 12*(octave + 1) + noteValues[note]
+proc toMidiNote*(octave: int, note: int): int =
+  result = 12*(octave + 1) + note
 
 proc toString*(note: int): string =
   let octave = note div 12 - 1
