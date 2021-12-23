@@ -1,5 +1,4 @@
-import imgui, imgui/[impl_opengl, impl_glfw]
-import nimgl/[opengl, glfw]
+import nimgl/[opengl, glfw, imgui, imgui/impl_glfw, imgui/impl_opengl]
 
 import ui
 

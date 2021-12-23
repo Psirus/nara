@@ -1,6 +1,6 @@
 import os, lenientops, strformat
 
-import imgui
+import nimgl/imgui
 
 import nordaudio
 import nordmidi

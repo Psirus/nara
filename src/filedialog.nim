@@ -1,5 +1,5 @@
 import os
-import imgui
+import nimgl/imgui
 
 var
   isActive = false
