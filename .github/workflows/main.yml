@@ -9,12 +9,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install deps
-        run: sudo apt-get -y install portaudio19-dev libportmidi-dev
+        run: sudo apt-get -y install portaudio19-dev libportmidi-dev libsndfile1-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl-dev
       - name: Install latest nim
         run: |
             curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
             echo "/home/runner/.nimble/bin" >> $GITHUB_PATH
-      - name: Install nimgl
-        run: nimble install -y nimgl
       - name: Build nara
-        run: nim cpp --threads:on -d:release nara.nim
+        run: nimble build -y
