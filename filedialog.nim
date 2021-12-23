@@ -16,7 +16,7 @@ proc draw*(filename: var string) =
   if isActive:
     igSetNextWindowSize(ImVec2(x: 740, y: 410))
     igBegin("Choose output file", nil, ImGuiWindowFlags.NoResize)
-    igText(currentPath)
+    igText(cstring(currentPath))
 
     var files: seq[string]
     var folders: seq[string]
@@ -33,7 +33,7 @@ proc draw*(filename: var string) =
       if igIsMouseDoubleClicked(ImGuiMouseButton.Left):
         currentPath = parentDir(currentPath)
     for i, folder in folders:
-      if igSelectable(relativePath(folder, currentPath), i == folderIndex, AllowDoubleClick):
+      if igSelectable(cstring(relativePath(folder, currentPath)), i == folderIndex, AllowDoubleClick):
         if igIsMouseDoubleClicked(ImGuiMouseButton.Left):
           currentPath = folder
           folderIndex = 0
@@ -47,12 +47,12 @@ proc draw*(filename: var string) =
 
     igBeginChild("Files", ImVec2(x: 516, y: 300), true, HorizontalScrollbar)
     for i, file in files:
-      if igSelectable(relativePath(file, currentPath), i == fileIndex, AllowDoubleClick):
+      if igSelectable(cstring(relativePath(file, currentPath)), i == fileIndex, AllowDoubleClick):
         fileIndex = i
         currentFile = file
     igEndChild()
     igPushItemWidth(724)
-    igInputText("", currentFile, uint(currentFile.len))
+    igInputText("", currentFile[0].addr, uint(currentFile.len))
     if igButton("New folder"):
       igOpenPopup("NewFolderPopup")
 
@@ -73,7 +73,7 @@ proc draw*(filename: var string) =
         newFolderName = ""
         newFolderError = ""
         igCloseCurrentPopup()
-      igTextColored(ImVec4(x: 1, y: 0, z: 0.2, w: 1), newFolderError)
+      igTextColored(ImVec4(x: 1, y: 0, z: 0.2, w: 1), cstring(newFolderError))
       igEndPopup()
 
     if igButton("Cancel"):

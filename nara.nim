@@ -13,7 +13,7 @@ proc main() =
   glfwWindowHint(GLFWOpenglProfile, GLFW_OPENGL_CORE_PROFILE)
   glfwWindowHint(GLFWResizable, GLFW_TRUE)
 
-  var w: GLFWWindow = glfwCreateWindow(800, 600, "Nara")
+  var w: GLFWWindow = glfwCreateWindow(600, 400, "Nara")
   if w == nil:
     quit(-1)
 
@@ -46,7 +46,7 @@ proc main() =
     igSetNextWindowPos(if use_work_area: viewport.workPos else: viewport.pos)
     igSetNextWindowSize(if use_work_area: viewport.workSize else: viewport.size)
 
-    igBegin("Hello, world!", flags=flags)
+    igBegin("Nara main window", flags=flags)
 
     when not defined(release):
       igCheckbox("Demo Window", show_demo.addr)

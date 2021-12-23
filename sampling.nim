@@ -73,7 +73,7 @@ proc sample*(midiDevice: nordmidi.DeviceID, audioDevice: DeviceIndex, note: int,
   data.maxFrameIndex = totalFrames
   data.frameIndex = 0
   let numSamples = totalFrames * NUM_CHANNELS
-  data.recordedSamples = newSeq[float32](numSamples)
+  data.recordedSamples = newSeq[cfloat](numSamples)
 
   discard initialize()
 
